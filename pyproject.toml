@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "cape-wf-bactopia-taxprofiler"
+version = "0.1.0"
+description = "CAPE workflow for Bactopia v4.1.0 and taxprofiler Kraken2"
+authors = []
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+# Dependencies for CI type checking only - not distributed
+boto3 = "*"
+apache-airflow = { version = "3.0.6", extras = ["amazon"] }
+pyright = "^1.1.410"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 80
+
+[tool.isort]
+profile = "black"
+line_length = 80
+
+[tool.ruff]
+line-length = 80

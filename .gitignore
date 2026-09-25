@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checking
+.pyright/
+.mypy_cache/
+.ruff_cache/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for the root package of a project. If your package is a library
+#   that other projects depend on, you might want to not include the lock file.
+# poetry.lock
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Release artifacts
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# pi-llm-wiki: keep authored knowledge, drop generated + immutable layers
+.llm-wiki/meta/
+.llm-wiki/raw/
+.llm-wiki/outputs/
+.llm-wiki/.discoveries/
+.llm-wiki/wiki/.obsidian/

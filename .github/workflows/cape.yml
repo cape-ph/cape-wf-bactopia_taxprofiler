@@ -1,0 +1,17 @@
+name: CAPE
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    name: Python Quality Checks
+    uses: cape-ph/.github/.github/workflows/poetry_python_checks.yml@sphinx
+    with:
+      pytest: false
+      sphinx: false
+  
+  general:
+    name: General Checks
+    uses: cape-ph/.github/.github/workflows/general_checks.yml@v1
