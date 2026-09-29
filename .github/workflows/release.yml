@@ -27,15 +27,17 @@ jobs:
 
   attach-artifacts:
     name: Attach Release Assets
-    # Run after release job completes, OR on manual workflow_dispatch
+    # Wait for release creation, but do not require every release step to
+    # succeed before attempting to attach the archive. Release creation and
+    # post-release tag maintenance are separate concerns.
     needs: [release]
     if: |
       always() &&
+      github.event_name != 'pull_request_target' &&
       (
-        needs.release.result == 'success' ||
+        github.event_name == 'push' ||
         github.event_name == 'workflow_dispatch'
-      ) &&
-      github.event_name != 'pull_request_target'
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
