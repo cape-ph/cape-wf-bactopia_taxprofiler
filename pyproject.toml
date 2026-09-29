@@ -3,6 +3,7 @@ name = "cape-wf-bactopia-taxprofiler"
 version = "0.1.0"
 description = "CAPE workflow for Bactopia v4.1.0 and taxprofiler Kraken2"
 authors = []
+readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
