@@ -1,0 +1,136 @@
+name: Semantic Versioning Release
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, edited, synchronize]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach artifacts to (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    # Only run automated release on push, not on manual dispatch
+    if: github.event_name != 'workflow_dispatch'
+    uses: cape-ph/.github/.github/workflows/semantic_release.yml@main
+    secrets: inherit
+    with:
+      is_production: ${{ github.event_name == 'push' }}
+      release-type: python
+
+  attach-artifacts:
+    name: Attach Release Assets
+    # Run after release job completes, OR on manual workflow_dispatch
+    needs: [release]
+    if: |
+      always() &&
+      (
+        needs.release.result == 'success' ||
+        github.event_name == 'workflow_dispatch'
+      ) &&
+      github.event_name != 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: >-
+            ${{
+              github.event_name == 'workflow_dispatch' &&
+              github.ref ||
+              'main'
+            }}
+          fetch-depth: 0
+
+      - name: Determine target release
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual trigger: use provided tag
+            TAG="${{ inputs.tag }}"
+            echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+            echo "mode=manual" >> $GITHUB_OUTPUT
+            echo "Manual mode: targeting release $TAG"
+          else
+            # Automated: find release for current commit
+            CURRENT_SHA="${{ github.sha }}"
+            echo "Looking for release targeting commit $CURRENT_SHA"
+
+            # Get all releases and find one matching current commit SHA
+            RELEASE_INFO=$(gh api repos/${{ github.repository }}/releases \
+              --jq ".[] |
+              select(.target_commitish == \"$CURRENT_SHA\") |
+              {tag_name, created_at} | @json" | head -1)
+
+            if [ -n "$RELEASE_INFO" ]; then
+              TAG=$(echo "$RELEASE_INFO" | jq -r '.tag_name')
+              CREATED_AT=$(echo "$RELEASE_INFO" | jq -r '.created_at')
+
+              # Check if release was created recently (within 5 minutes)
+              CREATED_TIMESTAMP=$(date -d "$CREATED_AT" +%s)
+              CURRENT_TIMESTAMP=$(date +%s)
+              TIME_DIFF=$((CURRENT_TIMESTAMP - CREATED_TIMESTAMP))
+
+              echo "Found release $TAG (created ${TIME_DIFF}s ago)"
+
+              if [ $TIME_DIFF -lt 300 ]; then
+                echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+                echo "mode=automated" >> $GITHUB_OUTPUT
+                echo "✅ Release is recent enough, will attach artifacts"
+              else
+                echo "⏰ Release is too old (${TIME_DIFF}s > 300s), skipping"
+                exit 0
+              fi
+            else
+              echo "❌ No release found for commit $CURRENT_SHA"
+              exit 0
+            fi
+          fi
+
+      - name: Get repository name
+        if: steps.target.outputs.tag_name != ''
+        id: repo
+        run: echo "name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+
+      - name: Create workflow archive
+        if: steps.target.outputs.tag_name != ''
+        env:
+          REPOSITORY_NAME: ${{ steps.repo.outputs.name }}
+          RELEASE_TAG: ${{ steps.target.outputs.tag_name }}
+        run: |
+          ARTIFACT_NAME="$REPOSITORY_NAME-$RELEASE_TAG.zip"
+          echo "Creating artifact: $ARTIFACT_NAME"
+          zip -j "$ARTIFACT_NAME" \
+            bactopia_taxprofiler.py \
+            meta.json
+          echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_ENV
+
+      - name: Upload to release
+        if: steps.target.outputs.tag_name != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.target.outputs.tag_name }}
+        run: |
+          echo "Uploading ${{ env.artifact_name }} to release $RELEASE_TAG"
+
+          # Check if artifact already exists and remove it
+          EXISTING=$(gh release view $RELEASE_TAG \
+            --json assets \
+            --jq '.assets[].name' | \
+            grep "^${{ env.artifact_name }}$" || true)
+          if [ -n "$EXISTING" ]; then
+            echo "Removing existing artifact..."
+            gh release delete-asset $RELEASE_TAG \
+              "${{ env.artifact_name }}" --yes
+          fi
+
+          gh release upload $RELEASE_TAG "${{ env.artifact_name }}"
+          echo "✅ Successfully uploaded artifact to release"

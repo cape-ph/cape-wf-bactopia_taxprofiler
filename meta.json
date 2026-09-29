@@ -1,0 +1,4 @@
+{
+    "dag_id": "bactopia_taxprofiler",
+    "pipeline_ids": ["bactopia-ont-v4.1.0", "taxprofiler-kraken2-2.0.1"]
+}
